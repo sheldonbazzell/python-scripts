@@ -1,75 +1,73 @@
-# in order to optimize the program, i attempted to use a generator function
-# the problem with this approach was that i couldn't account for the forward
-# pointing values, as they were yet to be uncovered in the generator object
-# thus, i reverted back using a list and a lookup table
-# despite being slower, it does successfully parse a csv of 1 million rows
-
 import csv, sys
-# in case user runs script w/out valid csv file
-# using this function (as opposed to simple raw_input())
-# to prevent prompt from being written to stdout
 def user_input(prompt=None):
+    """if user runs script w/out valid csv file, this function
+    prevents the prompt from being written to stdout
+    """
     if prompt:
         sys.stderr.write(str(prompt))
     return raw_input()
 
-f = sys.argv[1]
-# if the file extension isn't 'csv', ask for new file name
-if f[len(f)-3:] != 'csv':
-    f = user_input("Please enter valid csv file: ")
+def parse_input(input_file):
+    """iterates input file and returns list to be printed and
+    lookup table used for cell references
+    """
+    alph = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    cells, result = {}, []
+    for i in xrange(len(input_file)):
+        row, tmp = L[i], []
+        for j in xrange(len(row)):
+            val, key = row[j], alph[j] + str(i+1)
+            if val[0] == "=":
+                # try to convert character at index 1 to float to determine
+                # if input is mathematical operation or cell reference
+                try:
+                    math = float(val[1])
+                except ValueError:
+                    val = val[1:]
+                if math:
+                    operator = val[len(val)-1]
+                    nums = map(float, val[1:len(val)-1].strip().split(" "))
+                    if operator == "+":
+                        val = sum(nums)
+                    elif operator == "-":
+                        val = reduce(lambda s, x: s - x, nums[1:], nums[0])
+                    elif operator == "*":
+                        val = reduce(lambda p, x: p * x, nums[1:], nums[0])
+                    elif operator == "/":
+                        val = reduce(lambda q, x: q / x, nums[1:], nums[0])
+                    else:
+                        val = "Invalid operator"
+                    try:
+                        a = float(val)
+                        b = int(val)
+                        if a == b:
+                            val = int(val)
+                        else:
+                            val = float(val)
+                    except ValueError:
+                        pass
+                    math = None
+            tmp.append(val)
+            # add cell value to lookup table
+            cells[key] = val
+        result.append(tmp)
+    return [result, cells]
 
-input_file = open(f, 'rb')
-L = list(csv.reader(input_file))
-
-alph = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-vals = {} # cell value lookup table
-lookups = [] # to be referenced after vals is fully populated
-result = [] # to be printed to stdout
-
-# def parse_input(L):
-for i in xrange(len(L)):
-    row = L[i]
-    tmp = []
-    for j in xrange(len(row)):
-        val = row[j]
-        key = alph[j] + str(i+1)
-        if val[0] == '=':
-            # try to convert element at index 1 to int
-            try:
-                int(val[1])
-                # it worked, so we're doing a mathematical operation
-                operator = val[len(val)-1]
-                # parse this element of the csv row
-                nums = map(float, val[1:len(val)-1].strip().split(" "))
-                if operator == "+":
-                    val = sum(nums)
-                elif operator == "-":
-                    val = reduce(lambda s, x: s - x, nums[1:], nums[0])
-                elif operator == "*":
-                    val = reduce(lambda p, x: p * x, nums[1:], nums[0])
-                elif operator == "/":
-                    val = reduce(lambda q, x: q / x, nums[1:], nums[0])
-                else:
-                    val = " Not a valid operator"
-            # didnt work, so its a cell reference (e.g. C2), add key
-            # to 'lookups' list, will use this list after lookup table
-            # is complete to account for the cases of forward pointing
-            # cell references (e.g. setting cell A1 to D4)
-            except ValueError:
-                val = val[1:]
-        try:
-            val = float(val)
-        except ValueError:
-            pass
-        tmp.append(val)
-        # add cell value to lookup table
-        vals[key] = val
-    result.append(tmp)
-        # yield tmp
-# result = parse_input(L)
-for line in result:
-    for j in xrange(len(line)):
-        if line[j] in vals:
-            line[j] = vals[line[j]]
-    print ",".join(map(str,line))
-input_file.close()
+def main():
+    """passes input file to invocation of parse_input, iterates
+    parse_input's return value to print spreadsheet cells to stdout
+    """
+    f = sys.argv[1]
+    if f[len(f)-3:] != 'csv':
+        f = user_input("Please enter valid csv file: ")
+    input_file = open(f, 'rb')
+    L = list(csv.reader(input_file))
+    out = parse_input(L)
+    out_list, out_lookup = out[0], out[1]
+    for line in out_list:
+        for j in xrange(len(line)):
+            if line[j] in out_lookup:
+                line[j] = out_lookup[line[j]]
+        print ",".join(map(str,line))
+    input_file.close()
+main()
