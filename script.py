@@ -72,9 +72,7 @@ def divide(nums):
 
 def valid_file(f):
     """Validate that input file exists and is a csv."""
-    if f[len(f)-3:] != 'csv':
-        f = user_input("Please enter valid csv file: ")
-    while not os.path.isfile(f):
+    while not os.path.isfile(f) or f[len(f)-3:] != 'csv':
         f = user_input("Please enter valid csv file: ")
     return f
 
