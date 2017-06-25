@@ -1,74 +1,104 @@
 import csv
 import sys
+import os.path
 
 def parse_input(input_file):
     """Parses file, returns cell values list and dict for cell references."""
-    alph = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    cells, result = {}, []
+    cells, result, lookups = {}, [], []
+    operators = {"+":add, "-":subtract, "*":multiply, "/":divide}
     for i in xrange(len(input_file)):
         row, tmp = input_file[i], []
         for j in xrange(len(row)):
-            val, key, math = row[j], alph[j], None
+            val, key = row[j], chr(j + 97)
+            math, ref = None, None
             if val and val[0] == "=":
                 # try to convert character at index 1 to float to determine
                 # if input is mathematical operation or cell reference
                 try:
                     math = float(val[1])
                 except ValueError:
-                    val = val[1:]
+                    ref = val[1:]
+                except IndexError:
+                    # passed "=" without cell reference
+                    pass
                 if math:
                     operator = val[len(val)-1]
                     nums = map(float, val[1:len(val)-1].strip().split(" "))
-                    if operator == "+":
-                        val = sum(nums)
-                    elif operator == "-":
-                        val = reduce(lambda s, x: s - x, nums[1:], nums[0])
-                    elif operator == "*":
-                        val = reduce(lambda p, x: p * x, nums[1:], nums[0])
-                    elif operator == "/":
-                        val = reduce(lambda q, x: q / x, nums[1:], nums[0])
+                    if operator in operators:
+                        fn = operators[operator]
+                        val = fn(nums)
                     else:
                         val = "Invalid operator"
                     try:
-                        a = float(val)
-                        b = int(val)
-                        if a == b:
-                            val = int(val)
-                        else:
-                            val = float(val)
+                        a, b = int(val), float(val)
+                        val = int(val) if a == b else float(val)
+                    except TypeError as e:
+                        pass
                     except ValueError:
                         pass
+                elif ref:
+                    val = ref
+                    col_to_idx = ord(val[0].lower()) - 97
+                    row_to_idx = int(val[1]) - 1
+                    location = ((i, j), (row_to_idx, col_to_idx))
+                    lookups.append(location)
             tmp.append(val)
-            # add cell value to lookup table
-            cells.setdefault(key, []).append(val)
         result.append(tmp)
-    return [result, cells]
+    return [result, lookups]
+
+
+def calc_references(refs, out_list):
+    """Calculate cell references and return updated list."""
+    for cell in refs:
+        orig, ref = cell[0], cell[1]
+        orig_row, orig_col = orig[0], orig[1]
+        ref_row, ref_col = ref[0], ref[1]
+        out_list[orig_row][orig_col] = out_list[ref_row][ref_col]
+    return out_list
+
+
+# mathematical operations
+def add(nums):
+    return sum(nums)
+
+def subtract(nums):
+    return reduce(lambda s, x: s - x, nums[1:], nums[0])
+
+def multiply(nums):
+    return reduce(lambda p, x: p * x, nums[1:], nums[0])
+
+def divide(nums):
+    if nums[1] == 0:
+        return ZeroDivisionError
+    else:
+        return reduce(lambda q, x: q / x, nums[1:], nums[0])
+
+
+def valid_file(f):
+    """Validate that input file exists and is a csv."""
+    if f[len(f)-3:] != 'csv':
+        f = user_input("Please enter valid csv file: ")
+    while not os.path.isfile(f):
+        f = user_input("Please enter valid csv file: ")
+    return f
 
 
 def user_input(prompt=None):
-    """If user runs script without a valid csv file, this function
-    implements raw_input, but doesn't write prompt to stdout.
-    """
+    """Prompt user for new file without writing prompt to stdout."""
     if prompt:
         sys.stderr.write(str(prompt))
     return raw_input()
 
 
 def main():
-    f = sys.argv[1]
-    if f[len(f)-3:] != 'csv':
-        f = user_input("Please enter valid csv file: ")
+    f = valid_file(sys.argv[1])
     input_file = open(f, 'rb')
     L = list(csv.reader(input_file))
     out = parse_input(L)
-    out_list, out_lookup = out[0], out[1]
+    out_list, out_lookups = out[0], out[1]
+    if out_lookups:
+        out_list = calc_references(out_lookups, out_list)
     for line in out_list:
-        for j in xrange(len(line)):
-            if line[j] == "Invalid operator":
-                continue
-            elif type(line[j]) is str and len(line[j]) > 1 and line[j][0] in out_lookup:
-                col, row = line[j][0], int(line[j][1]) - 1
-                line[j] = out_lookup[col][row]
         print ",".join(map(str,line))
     input_file.close()
 
