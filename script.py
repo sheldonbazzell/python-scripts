@@ -1,23 +1,15 @@
-import csv, sys
-def user_input(prompt=None):
-    """if user runs script w/out valid csv file, this function
-    prevents the prompt from being written to stdout
-    """
-    if prompt:
-        sys.stderr.write(str(prompt))
-    return raw_input()
+import csv
+import sys
 
 def parse_input(input_file):
-    """iterates input file and returns list to be printed and
-    lookup table used for cell references
-    """
+    """Parses file, returns cell values list and dict for cell references."""
     alph = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
     cells, result = {}, []
     for i in xrange(len(input_file)):
-        row, tmp = L[i], []
+        row, tmp = input_file[i], []
         for j in xrange(len(row)):
-            val, key = row[j], alph[j] + str(i+1)
-            if val[0] == "=":
+            val, key, math = row[j], alph[j], None
+            if val and val[0] == "=":
                 # try to convert character at index 1 to float to determine
                 # if input is mathematical operation or cell reference
                 try:
@@ -46,17 +38,23 @@ def parse_input(input_file):
                             val = float(val)
                     except ValueError:
                         pass
-                    math = None
             tmp.append(val)
             # add cell value to lookup table
-            cells[key] = val
+            cells.setdefault(key, []).append(val)
         result.append(tmp)
     return [result, cells]
 
-def main():
-    """passes input file to invocation of parse_input, iterates
-    parse_input's return value to print spreadsheet cells to stdout
+
+def user_input(prompt=None):
+    """If user runs script without a valid csv file, this function
+    implements raw_input, but doesn't write prompt to stdout.
     """
+    if prompt:
+        sys.stderr.write(str(prompt))
+    return raw_input()
+
+
+def main():
     f = sys.argv[1]
     if f[len(f)-3:] != 'csv':
         f = user_input("Please enter valid csv file: ")
@@ -66,8 +64,14 @@ def main():
     out_list, out_lookup = out[0], out[1]
     for line in out_list:
         for j in xrange(len(line)):
-            if line[j] in out_lookup:
-                line[j] = out_lookup[line[j]]
+            if line[j] == "Invalid operator":
+                continue
+            elif type(line[j]) is str and len(line[j]) > 1 and line[j][0] in out_lookup:
+                col, row = line[j][0], int(line[j][1]) - 1
+                line[j] = out_lookup[col][row]
         print ",".join(map(str,line))
     input_file.close()
-main()
+
+
+if __name__ == "__main__":
+    main()
