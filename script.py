@@ -10,17 +10,17 @@ def parse_input(input_file):
         row, tmp = input_file[i], []
         for j in xrange(len(row)):
             val, key = row[j], chr(j + 97)
-            math, ref = None, None
+            math, ref_to_cell = None, None
             if val and val[0] == "=":
                 # try to convert character at index 1 to float to determine
                 # if input is mathematical operation or cell reference
                 try:
                     math = float(val[1])
                 except ValueError:
-                    ref = val[1:]
+                    ref_to_cell = val[1:]
                 except IndexError:
                     # passed "=" without cell reference
-                    pass
+                    val = "missing RPN calculation or cell reference"
                 if math:
                     operator = val[len(val)-1]
                     nums = map(float, val[1:len(val)-1].strip().split(" "))
@@ -29,15 +29,11 @@ def parse_input(input_file):
                         val = fn(nums)
                     else:
                         val = "Invalid operator"
-                    try:
+                    if not isinstance(val, ZeroDivisionError):
                         a, b = int(val), float(val)
                         val = int(val) if a == b else float(val)
-                    except TypeError as e:
-                        pass
-                    except ValueError:
-                        pass
-                elif ref:
-                    val = ref
+                elif ref_to_cell:
+                    val = ref_to_cell
                     col_to_idx = ord(val[0].lower()) - 97
                     row_to_idx = int(val[1]) - 1
                     location = ((i, j), (row_to_idx, col_to_idx))
@@ -68,10 +64,10 @@ def multiply(nums):
     return reduce(lambda p, x: p * x, nums[1:], nums[0])
 
 def divide(nums):
-    if nums[1] == 0:
-        return ZeroDivisionError
-    else:
+    try:
         return reduce(lambda q, x: q / x, nums[1:], nums[0])
+    except ZeroDivisionError as e:
+        return e
 
 
 def valid_file(f):
