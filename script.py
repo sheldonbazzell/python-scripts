@@ -3,7 +3,10 @@ import sys
 import os.path
 
 def parse_input(input_file):
-    """Parses file, returns cell values list and dict for cell references."""
+    """Produce cell values list and cell references list.
+    Input: list representation of a csv file.
+    Output: 2D cell values list and list of tuples to identify cell references.
+    """
     cells, result, lookups = {}, [], []
     operators = {"+":add, "-":subtract, "*":multiply, "/":divide}
     for i in xrange(len(input_file)):
@@ -44,7 +47,10 @@ def parse_input(input_file):
 
 
 def calc_references(refs, out_list):
-    """Calculate cell references and return updated list."""
+    """Update output list to accommodate cell references.
+    Input: 2D list with identifiable cells as references to other cells.
+    Output: 2D list with values in place of referenced cells.
+    """
     for cell in refs:
         orig, ref = cell[0], cell[1]
         orig_row, orig_col = orig[0], orig[1]
@@ -71,7 +77,10 @@ def divide(nums):
 
 
 def valid_file(f):
-    """Validate that input file exists and is a csv."""
+    """Validate that the input file exists and is a csv.
+    Input: File path as a string.
+    Output: File path as a string.
+    """
     while not os.path.isfile(f) or f[len(f)-3:] != 'csv':
         f = user_input("Please enter valid csv file: ")
     return f
